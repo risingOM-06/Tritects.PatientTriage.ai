@@ -75,12 +75,19 @@ function renderDashboard(data) {
 
     // Render Table
     const tbody = document.getElementById("queue");
-    tbody.innerHTML = q.map((p, i) => `
+    tbody.innerHTML = q.map((p, i) => {
+    const riskLevel = p.risk_level || "Low";
+
+    return `
         <tr class="${selectedPatientId === p.patient_id ? 'selected' : ''}" onclick="selectPatient('${p.patient_id}')">
           <td>${i + 1}</td>
           <td><b>${p.patient_id}</b></td>
           <td><b>${p.dynamic_score}</b> <span style="color:var(--muted); font-size:10px">(was ${p.base_risk_score})</span></td>
-          <td><span class="badge ${p.risk_level.toLowerCase()}">${p.risk_level}</span></td>
+          <td>
+                <span class="badge ${riskLevel.toLowerCase()}">
+                    ${riskLevel}
+                </span>
+            </td>
           <td>${p.red_flag ? '<span class="red">YES</span>' : '—'}</td>
           <td>${p.wait_time_min.toFixed(1)}m</td>
           <td>${p.arrival_mode}</td>
@@ -92,7 +99,8 @@ function renderDashboard(data) {
             </button>
           </td>
         </tr>
-    `).join("");
+    `;
+}).join("");
 
     updateSelectedPatientDetails();
 }
