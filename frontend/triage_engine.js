@@ -181,31 +181,25 @@ async function treatPatient(patientId) {
     }
 
     // 3. Remove them from the backend queue
-    await fetch(`http://localhost:8000/api/treat/${patientId}`, { method: 'POST' });
+    await fetch(`${API_BASE_URL}/api/treat/${patientId}`, {
+    method: 'POST'
+});
     fetchLiveQueue(); 
 }
 
 function dischargePatient(index) {
     const p = emergencyRooms[index];
+
     if (!p) return;
 
-    // 1. Send to Audit Log (UI)
-    const timeString = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-    treatedHistory.unshift(`
-        <div style="font-size:12px; padding:8px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between;">
-            <span><span class="green">✓ DISCHARGED:</span> <b>${p.patient_id}</b></span>
-            <span style="color:var(--muted)">From ER ${index + 1} at ${timeString}</span>
-        </div>
-    `);
-    if (treatedHistory.length > 8) treatedHistory.pop();
-    document.getElementById("treatedLog").innerHTML = treatedHistory.join("");
-
-    // 2. Vacate the room, turn light green, update global counter
     emergencyRooms[index] = null;
-    totalDischargedCount++;
-    document.getElementById("dischargedCount").textContent = totalDischargedCount;
 
-    // 3. Update the UI
+    totalDischargedCount++;
+
+    document.getElementById("dischargedCount").textContent =
+        totalDischargedCount;
+
     renderER();
-    fetchLiveQueue(); // Re-evaluates room capacity and re-enables "Treat" buttons
+
+    fetchLiveQueue();
 }
