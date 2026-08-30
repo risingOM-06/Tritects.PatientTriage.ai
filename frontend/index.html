@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PatientTriage.ai — Live Dashboard</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--text:#172033;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;--danger:#dc2626;--warn:#d97706;--ok:#059669}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{background:#111827;color:white;padding:18px 28px;display:flex;justify-content:space-between;align-items:center}
+.brand{font-size:22px;font-weight:800}.sub{font-size:12px;color:#cbd5e1;margin-top:3px}
+.clock{font-variant-numeric:tabular-nums;text-align:right}
+main{padding:22px;max-width:1500px;margin:auto}.grid{display:grid;gap:16px}
+.stats{grid-template-columns:repeat(6,1fr)}.two{grid-template-columns:1.6fr 1fr}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 2px 8px #00000008}
+.stat .label{color:var(--muted);font-size:12px}.stat .value{font-size:25px;font-weight:800;margin-top:5px}
+.section-title{font-weight:800;font-size:16px;margin-bottom:12px}
+.badge{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800}
+.critical{background:#fee2e2;color:#991b1b}.high{background:#ffedd5;color:#9a3412}.moderate{background:#fef3c7;color:#92400e}.low{background:#d1fae5;color:#065f46}
+.red{color:#b91c1c;font-weight:800}.green{color:#047857;font-weight:800}
+table{width:100%;border-collapse:collapse}th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}th{font-size:11px;color:var(--muted);text-transform:uppercase}
+tr:hover{background:#f8fafc;cursor:pointer}.selected{background:#eff6ff}
+button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.primary{background:var(--accent);color:white}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.er{display:flex;justify-content:space-between;align-items:center}.er-status{font-size:14px;font-weight:800}
+.detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}.detail-row span:first-child{color:var(--muted)}
+.notice{padding:10px 12px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:9px;color:#3730a3;font-size:12px;font-weight:bold;}
+</style>
+</head>
+<body>
+<header>
+ <div><div class="brand">PatientTriage.ai</div><div class="sub">Live AI Engine Connected</div></div>
+ <div class="clock"><div id="simClock">LIVE</div><div class="sub">Real-time inference</div></div>
+</header>
+
+<main>
+<div class="grid stats">
+ <div class="card stat"><div class="label">Waiting Patients</div><div class="value" id="total">0</div></div>
+ <div class="card stat"><div class="label">Critical</div><div class="value" id="critical">0</div></div>
+ <div class="card stat"><div class="label">High</div><div class="value" id="high">0</div></div>
+ <div class="card stat"><div class="label">Ambulance</div><div class="value" id="ambulance">0</div></div>
+ <div class="card stat"><div class="label">Walk-In</div><div class="value" id="nonambulance">0</div></div>
+ <div class="card stat"><div class="label">Avg. Wait</div><div class="value"><span id="avgwait">0</span> min</div></div>
+</div>
+
+<div style="height:16px"></div>
+
+<div class="grid two">
+ <div class="card">
+   <div class="section-title">Emergency Room Status</div>
+   <div class="er">
+     <div>
+       <div class="er-status" id="erStatus" style="color: var(--ok);">SYSTEM ONLINE & LISTENING</div>
+       <div style="color:var(--muted);font-size:13px;margin-top:5px">FastAPI Engine Connected on Port 8000</div>
+     </div>
+   </div>
+ </div>
+ <div class="card">
+   <div class="section-title">API Testing Controls</div>
+   <div class="controls">
+     <button class="primary" onclick="injectTestPatient()">+ Inject Random Walk-In</button>
+     <button id="pauseBtn" class="primary" style="background:#d97706" onclick="togglePause()">⏸ Pause Intake</button>
+     <button class="danger" onclick="resetEngine()">↺ Clear Queue</button>
+   </div>
+   <div style="margin-top:12px" class="notice">
+     Clicking this button sends a JSON payload to the Python backend. The AI scores the vitals, places the patient in the Max-Heap, and updates the UI instantly.
+   </div>
+ </div>
+</div>
+
+<div style="height:16px"></div>
+
+<div class="grid two">
+ <div class="card">
+   <div class="section-title">Live Priority Queue</div>
+   <div style="overflow:auto;max-height:600px">
+   <table><thead><tr><th>#</th><th>Patient</th><th>Score (Dynamic)</th><th>Risk</th><th>Flag</th><th>Wait</th><th>Mode</th><th>Action</th></tr></thead>
+   <tbody id="queue"></tbody></table>
+   </div>
+ </div>
+
+ <div class="card">
+   <div class="section-title">XAI Insights (Selected Patient)</div>
+   <div id="details"><div style="color:var(--muted)">Select a patient from the queue to view AI inference.</div></div>
+ </div>
+</div>
+</main>
+
+<script src="config.js"></script>
+    <script src="triage_engine.js"></script>
+</body>
+</html>
