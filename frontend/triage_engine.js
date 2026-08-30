@@ -4,15 +4,36 @@ const API_BASE_URL = window.API_BASE_URL || "http://localhost:8000";
 // 1. FETCH LIVE QUEUE FROM PYTHON BACKEND
 // -----------------------------------------------------
 async function fetchLiveQueue() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/queue`);
-        const data = await response.json();
-        renderDashboard(data);
-    } catch (error) {
-        console.error("Backend offline:", error);
-        document.getElementById("erStatus").textContent = "API DISCONNECTED - START PYTHON SERVER";
-        document.getElementById("erStatus").style.color = "red";
+let response;
+let data;
+
+try {
+    response = await fetch(`${API_BASE_URL}/api/queue`);
+
+    if (!response.ok) {
+        throw new Error(`Backend returned HTTP ${response.status}`);
     }
+
+    data = await response.json();
+
+} catch (error) {
+    console.error("Backend connection error:", error);
+
+    document.getElementById("erStatus").textContent =
+        "API DISCONNECTED";
+
+    document.getElementById("erStatus").style.color = "red";
+
+    return;
+}
+
+try {
+    renderDashboard(data);
+
+} catch (error) {
+    console.error("Dashboard rendering error:", error);
+}
+
 }
 // --- NEW ER ROOM STATE ---
 let emergencyRooms = [null, null, null, null, null]; // 5 empty slots
@@ -84,8 +105,8 @@ function renderDashboard(data) {
           <td><b>${p.patient_id}</b></td>
           <td><b>${p.dynamic_score}</b> <span style="color:var(--muted); font-size:10px">(was ${p.base_risk_score})</span></td>
           <td>
-                <span class="badge ${riskLevel.toLowerCase()}">
-                    ${riskLevel}
+                <span class="badge ${(p.risk_level || "Low").toLowerCase()}">
+                    ${p.risk_level || "Low"}
                 </span>
             </td>
           <td>${p.red_flag ? '<span class="red">YES</span>' : '—'}</td>
@@ -150,14 +171,21 @@ async function injectTestPatient() {
         spo2_slope: isAmbulance ? Number((Math.random() * -3).toFixed(1)) : 0.0
     };
     
-    await fetch(`${API_BASE_URL}/api/intake`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(newPatient)
+    const response = await fetch(`${API_BASE_URL}/api/intake`, {
+    method: "POST",
+    headers: {
+    "Content-Type": "application/json"
+    },
+    body: JSON.stringify(newPatient)
     });
-    
-    fetchLiveQueue(); 
-}
+
+    if (!response.ok) {
+    throw new Error(`Intake failed with HTTP ${response.status}`);
+    }
+
+    await fetchLiveQueue();
+
+    }
 
 // Poll the Python server every 2 seconds
 setInterval(fetchLiveQueue, 2000);
