@@ -9,7 +9,7 @@ import os
 import asyncio
 import csv
 from datetime import datetime
-
+from pathlib import Path
 app = FastAPI(title="PatientTriage.ai Live Engine")
 
 app.add_middleware(
@@ -21,10 +21,14 @@ app.add_middleware(
 )
 
 print("Loading AI Model...")
-model_path = "../model/triage_model.pkl"
-if os.path.exists(model_path):
-    with open(model_path, "rb") as f:
-        model = pickle.load(f)
+BASE_DIR = Path(__file__).resolve().parent.parent
+model_path = BASE_DIR / "model" / "triage_model.pkl"
+print(f"Loading AI Model from: {model_path}")
+if not model_path.exists():
+    raise FileNotFoundError(f"Model file not found: {model_path}")
+with open(model_path, "rb") as f:
+    model = pickle.load(f)
+print("AI Model loaded successfully.")
 
 # Global Data Structures & State
 patient_queue = []  
