@@ -1,49 +1,51 @@
-# 🏥 PatientTriage.ai
+# PatientTriage.ai
 
 ### Real-Time AI-Assisted Emergency Department Prioritization System
 
-**PatientTriage.ai** is a real-time emergency department triage simulation and decision-support prototype that prioritizes patients based on predicted clinical urgency, dynamic deterioration while waiting, and emergency room capacity.
+PatientTriage.ai is a real-time emergency department triage simulation and decision-support prototype that prioritizes patients based on predicted clinical urgency, dynamic deterioration while waiting, and emergency room capacity.
 
 Unlike a traditional first-come-first-served queue, PatientTriage.ai continuously re-evaluates patient priority as waiting time increases and dynamically updates the treatment queue.
 
-> ⚠️ **Disclaimer:** PatientTriage.ai is an educational and simulation prototype. It is not a clinically validated medical device and must not be used for real-world diagnosis, treatment, or medical decision-making.
+> **Disclaimer:** PatientTriage.ai is an educational and simulation prototype. It is not a clinically validated medical device and must not be used for real-world diagnosis, treatment, or medical decision-making.
 
 ---
 
-## 🌐 Live Demo
+## Live Demo
 
-🚀 **Frontend:** https://tritects-patient-triage-ai.vercel.app/
+**Frontend:** https://tritects-patient-triage-ai.vercel.app/
 
 The application is deployed using:
 
-* **Frontend:** Vercel
-* **Backend:** Railway
-* **API Framework:** FastAPI
-* **Machine Learning:** Scikit-learn
-* **Data Processing:** Pandas
-* **Core Data Structure:** Max-Heap Priority Queue
+* Frontend: Vercel
+* Backend: Railway
+* API Framework: FastAPI
+* Machine Learning: Scikit-learn
+* ML Model: RandomForestRegressor
+* Data Processing: Pandas
+* Core Data Structure: Max-Heap Priority Queue
 
 ---
 
-# 📌 Problem Statement
+# Problem Statement
 
 Emergency departments often face overcrowding and limited treatment capacity.
 
-A major challenge is that patient urgency is **not static**.
+A major challenge is that patient urgency is not static.
 
 A patient who initially appears stable may deteriorate while waiting, meaning a simple first-come-first-served queue may not always prioritize the patient with the highest current urgency.
 
 PatientTriage.ai explores the following question:
 
-> **How can a real-time software system continuously prioritize patients based on predicted urgency, waiting time, and treatment capacity?**
+> How can a real-time software system continuously prioritize patients based on predicted urgency, waiting time, and treatment capacity?
 
 ---
 
-# 💡 Our Solution
+# Our Solution
 
 PatientTriage.ai implements a live triage simulation engine that combines:
 
 * Machine learning-based urgency estimation
+* Random Forest regression
 * Dynamic risk scoring
 * Waiting-time deterioration
 * Priority queue scheduling
@@ -55,43 +57,49 @@ The system continuously updates patient priority rather than assigning a permane
 
 ---
 
-# ⚙️ System Workflow
+# System Workflow
 
 ```text
                      PATIENT ARRIVAL
-                           │
-                           ▼
+                           |
+                           v
                   FEATURE ENGINEERING
-                           │
-                           ▼
-                    ML MODEL INFERENCE
-                           │
-                           ▼
+                           |
+                           v
+                 RANDOM FOREST REGRESSOR
+                           |
+                           v
+                 ML MODEL INFERENCE
+                           |
+                           v
+                 PREDICTED SAFE TIME
+                           |
+                           v
                   BASE RISK ESTIMATION
-                           │
-                           ▼
+                           |
+                           v
                 DYNAMIC RISK ADJUSTMENT
                    (WAITING TIME)
-                           │
-                           ▼
+                           |
+                           v
                   PRIORITY MAX-HEAP
-                           │
-                           ▼
+                           |
+                           v
                  LIVE PATIENT QUEUE
-                           │
-                           ▼
+                           |
+                           v
                 EMERGENCY ROOM ASSIGNMENT
-                           │
-                           ▼
+                           |
+                           v
                      TREATMENT
-                           │
-                           ▼
-                  AUDIT / EVENT LOG
+                           |
+                           v
+                    DISCHARGE / LOG
 ```
 
 ---
 
-# 🧠 How the AI Engine Works
+# How the Machine Learning Engine Works
 
 The backend receives patient information including:
 
@@ -100,32 +108,36 @@ The backend receives patient information including:
 * Medical history
 * Heart rate
 * Respiratory rate
-* Blood oxygen saturation (SpO₂)
+* Blood oxygen saturation (SpO2)
 * Body temperature
 * Heart rate trend
-* SpO₂ trend
+* SpO2 trend
 
-These features are processed and passed to the trained machine learning model.
+These features are processed and passed to a machine learning model.
 
-The model predicts an estimated safe waiting time:
+The project uses a **RandomForestRegressor** trained using engineered patient features. The model estimates a predicted safe waiting time for a patient.
+
+The prediction is then converted into a base risk score:
 
 ```text
 Predicted Safe Time
-        ↓
-Converted into Base Risk Score
-        ↓
+        |
+        v
+Base Risk Score
+        |
+        v
 Dynamic Risk Score
 ```
 
-The base risk score is calculated from the model output and then adjusted dynamically as the patient continues waiting.
+The base risk score is subsequently adjusted as the patient's waiting time increases.
 
 ---
 
-# 📈 Dynamic Patient Prioritization
+# Dynamic Patient Prioritization
 
 One of the core features of PatientTriage.ai is that patient priority changes over time.
 
-The system calculates:
+The system calculates a dynamic score using:
 
 ```text
 Dynamic Risk Score
@@ -137,7 +149,7 @@ Waiting Time Deterioration
 
 This means that the queue is continuously updated.
 
-Example:
+For example:
 
 ```text
 Patient A
@@ -148,31 +160,29 @@ Patient B
 Initial Risk: 70
 Wait Time: 15 minutes
 
-↓
-
-Patient B may eventually receive a higher dynamic priority.
+As waiting time increases, Patient B's dynamic risk can increase and eventually affect the patient's treatment priority.
 ```
 
 This prevents the queue from being permanently static.
 
 ---
 
-# 🔴 Risk Classification
+# Risk Classification
 
 Patients are categorized dynamically based on their current risk score.
 
 | Risk Score | Priority Level |
 | ---------- | -------------- |
-| 75+        | 🔴 Critical    |
-| 50–74      | 🟠 High        |
-| 25–49      | 🟡 Moderate    |
-| Below 25   | 🟢 Low         |
+| 75+        | Critical       |
+| 50-74      | High           |
+| 25-49      | Moderate       |
+| Below 25   | Low            |
 
-Additional red-flag conditions are also evaluated, such as critically low SpO₂ values.
+Additional red-flag conditions are also evaluated, such as critically low SpO2 values.
 
 ---
 
-# ⚡ Priority Queue Implementation
+# Priority Queue Implementation
 
 The backend uses a heap-based priority queue to efficiently manage patients.
 
@@ -187,11 +197,11 @@ heapq.heappush(
 
 Patients with higher urgency are therefore prioritized.
 
-The priority queue is periodically rebuilt as patient risk scores change over time.
+As patient risk scores change over time, the priority queue is rebuilt to maintain the correct ordering.
 
 ---
 
-# 🏥 Emergency Room Capacity Management
+# Emergency Room Capacity Management
 
 The frontend simulates a physical emergency department with limited treatment rooms.
 
@@ -200,37 +210,32 @@ Current implementation:
 * 5 Emergency Rooms
 * Vacant rooms are displayed as available
 * Treated patients are moved from the priority queue into an ER room
-* Once all rooms are occupied, intake/treatment capacity is visually restricted
+* Once all rooms are occupied, the system displays an emergency room capacity warning
 * Patients can be discharged to free ER capacity
 
 Example:
 
 ```text
-ER 1   🟢 Vacant
-ER 2   🔴 Occupied
-ER 3   🔴 Occupied
-ER 4   🟢 Vacant
-ER 5   🔴 Occupied
+ER 1   Vacant
+ER 2   Occupied
+ER 3   Occupied
+ER 4   Vacant
+ER 5   Occupied
 ```
 
 This introduces a capacity constraint into the simulation rather than assuming unlimited treatment resources.
 
 ---
 
-# 🚨 System Lockdown Simulation
+# System Lockdown Simulation
 
-When all emergency rooms are occupied, the system displays a capacity warning:
-
-```text
-🚨 SYSTEM LOCKDOWN
-ALL EMERGENCY ROOMS ARE OCCUPIED
-```
+When all emergency rooms are occupied, the system displays a capacity warning indicating that no additional patients can currently be moved into treatment rooms.
 
 This demonstrates how treatment capacity can affect patient flow and emergency department congestion.
 
 ---
 
-# 📊 Live Dashboard Features
+# Live Dashboard Features
 
 The dashboard displays real-time operational metrics including:
 
@@ -247,9 +252,9 @@ The dashboard displays real-time operational metrics including:
 
 ---
 
-# 🔍 AI Decision Insights
+# AI Decision Insights
 
-Users can select a patient from the live queue to inspect available decision information.
+Users can select a patient from the live queue to inspect decision-related information.
 
 The dashboard displays:
 
@@ -266,7 +271,7 @@ This provides visibility into the values used by the prioritization engine.
 
 ---
 
-# 🔄 Real-Time Background Processing
+# Real-Time Background Processing
 
 The FastAPI backend runs an asynchronous background task that periodically:
 
@@ -279,15 +284,20 @@ Conceptually:
 
 ```text
 Patient enters queue
-        ↓
+        |
+        v
 AI calculates base risk
-        ↓
+        |
+        v
 Patient waits
-        ↓
+        |
+        v
 Risk changes over time
-        ↓
+        |
+        v
 Priority queue updates
-        ↓
+        |
+        v
 Dashboard refreshes
 ```
 
@@ -295,44 +305,35 @@ The frontend polls the backend periodically to display the latest queue state.
 
 ---
 
-# 🏗️ System Architecture
+# System Architecture
 
 ```text
-┌──────────────────────────────┐
-│                              │
-│       USER / WEB BROWSER     │
-│                              │
-└───────────────┬──────────────┘
-                │
-                ▼
-┌──────────────────────────────┐
-│                              │
-│        VERCEL FRONTEND       │
-│                              │
-│ HTML • CSS • JavaScript      │
-│                              │
-└───────────────┬──────────────┘
-                │ HTTPS / REST API
-                ▼
-┌──────────────────────────────┐
-│                              │
-│        RAILWAY BACKEND       │
-│                              │
-│           FastAPI            │
-│                              │
-└───────────────┬──────────────┘
-                │
-        ┌───────┴────────┐
-        ▼                ▼
-┌──────────────┐   ┌──────────────┐
-│ ML MODEL     │   │ PRIORITY     │
-│              │   │ QUEUE ENGINE │
-└──────────────┘   └──────────────┘
+                    USER / WEB BROWSER
+                            |
+                            v
+                    VERCEL FRONTEND
+                            |
+                  HTTPS / REST API
+                            |
+                            v
+                    RAILWAY BACKEND
+                            |
+                          FastAPI
+                            |
+                 +----------+----------+
+                 |                     |
+                 v                     v
+          ML MODEL ENGINE      PRIORITY QUEUE ENGINE
+                 |                     |
+                 +----------+----------+
+                            |
+                            v
+                     LIVE TRIAGE STATE
 ```
 
 ---
 
-# 🛠️ Technology Stack
+# Technology Stack
 
 ## Frontend
 
@@ -353,9 +354,11 @@ The frontend polls the backend periodically to display the latest queue state.
 ## Machine Learning
 
 * Scikit-learn
-* Random Forest
+* RandomForestRegressor
 * Pandas
 * Pickle
+* Feature Engineering
+* Synthetic Patient Data
 
 ## Algorithms and Data Structures
 
@@ -365,37 +368,37 @@ The frontend polls the backend periodically to display the latest queue state.
 
 ---
 
-# 📁 Project Structure
+# Project Structure
 
 ```text
 PatientTriage.ai
-│
+|
 ├── backend/
-│   ├── main.py
-│   ├── requirements.txt
-│   └── Dockerfile
-│
+|   ├── main.py
+|   ├── requirements.txt
+|   └── Dockerfile
+|
 ├── frontend/
-│   ├── index.html
-│   ├── triage_engine.js
-│   └── config.js
-│
+|   ├── index.html
+|   ├── triage_engine.js
+|   └── config.js
+|
 ├── model/
-│   ├── train_model.py
-│   └── triage_model.pkl
-│
+|   ├── train_model.py
+|   └── triage_model.pkl
+|
 ├── data/
-│   └── synthetic_patient_data.csv
-│
+|   └── synthetic_patient_data.csv
+|
 ├── tests/
-│   └── surge_tests.py
-│
+|   └── surge_tests.py
+|
 └── README.md
 ```
 
 ---
 
-# 🚀 Running Locally
+# Running Locally
 
 ## 1. Clone the Repository
 
@@ -483,7 +486,7 @@ npx serve frontend
 
 ---
 
-# 🔌 API Endpoints
+# API Endpoints
 
 ## Add Patient
 
@@ -562,12 +565,12 @@ Returns system information including:
 * Server uptime
 * Active asynchronous tasks
 * Queue size
-* Database size
-* Model loading status
+* Patient database size
+* Machine learning model loading status
 
 ---
 
-# 🧪 Testing
+# Testing
 
 The project includes simulation-oriented testing to evaluate how the prioritization engine behaves under increased patient inflow.
 
@@ -582,21 +585,19 @@ Testing focuses on scenarios such as:
 
 ---
 
-# ⚠️ Current Limitations
+# Current Limitations
 
 PatientTriage.ai is currently a prototype and simulation.
 
-Important limitations include:
-
-### 1. Synthetic Training Data
+## 1. Synthetic Training Data
 
 The current machine learning model is trained using synthetic patient data generated for simulation purposes.
 
-The model is **not clinically validated**.
+The model is not clinically validated.
 
 ---
 
-### 2. In-Memory State
+## 2. In-Memory State
 
 The current backend stores active patient information in memory.
 
@@ -606,23 +607,25 @@ A production system would use persistent infrastructure such as:
 
 ```text
 FastAPI
-   ↓
+   |
+   v
 PostgreSQL
-   ↓
+   |
+   v
 Redis
 ```
 
 ---
 
-### 3. Simplified Clinical Features
+## 3. Simplified Clinical Features
 
 The prototype uses a limited set of simulated clinical variables.
 
-Real-world deployment would require significantly more clinical information and validation.
+Real-world deployment would require significantly more clinical information, validation, and expert oversight.
 
 ---
 
-### 4. Not a Medical Device
+## 4. Not a Medical Device
 
 The system must not be used for:
 
@@ -633,9 +636,9 @@ The system must not be used for:
 
 ---
 
-# 🔮 Future Improvements
+# Future Improvements
 
-Planned directions for future development include:
+Possible future directions include:
 
 * [ ] Real clinical dataset integration
 * [ ] Clinical validation with domain experts
@@ -651,29 +654,29 @@ Planned directions for future development include:
 
 ---
 
-# 🎯 Key Innovation
+# Key Idea
 
 The core idea behind PatientTriage.ai is that:
 
-> **Patient urgency should not be treated as static.**
+> Patient urgency should not be treated as static.
 
-The system combines initial AI-assisted risk estimation with continuous waiting-time deterioration and dynamic priority queue updates.
+The system combines initial machine learning-based risk estimation with continuous waiting-time deterioration and dynamic priority queue updates.
 
 Instead of only asking:
 
-> **Who arrived first?**
+> Who arrived first?
 
-PatientTriage.ai asks:
+PatientTriage.ai continuously evaluates:
 
-> **Who cannot afford to wait?**
+> Who cannot afford to wait?
 
 ---
 
-# 👥 Team
+# Team
 
 **TriTects**
 
-Built as a full-stack AI and systems engineering project combining:
+PatientTriage.ai is a full-stack AI and systems engineering project combining:
 
 * Machine Learning
 * Backend Engineering
@@ -683,16 +686,8 @@ Built as a full-stack AI and systems engineering project combining:
 
 ---
 
-# 📄 Disclaimer
+# Disclaimer
 
 This project is intended strictly for educational, research, and simulation purposes.
 
-PatientTriage.ai does not provide medical advice and has not been clinically validated. The predictions and prioritization produced by this system must not be used as a substitute for qualified medical professionals or real-world clinical protocols.
-
----
-
-## ⭐ If you found this project interesting
-
-Consider giving the repository a star!
-
-**PatientTriage.ai — Because urgency can change while waiting.**
+PatientTriage.ai does not provide medical advice and has not been clinically validated. The predictions and prioritization produced by this system must not be used as a substitute for qualified medical professionals or established clinical protocols.
