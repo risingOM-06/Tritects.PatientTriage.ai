@@ -14,7 +14,29 @@ async function fetchLiveQueue() {
         document.getElementById("erStatus").style.color = "red";
     }
 }
+// --- NEW ER ROOM STATE ---
+let emergencyRooms = [null, null, null, null, null]; // 5 empty slots
+let totalDischargedCount = 0;
 
+function renderER() {
+    const container = document.getElementById("er-rooms-container");
+    container.innerHTML = emergencyRooms.map((patient, index) => `
+        <div class="room-card ${patient ? 'occupied' : ''}">
+            <div style="font-weight:bold; font-size:14px; margin-bottom:8px;">
+                <span class="light ${patient ? 'light-red' : 'light-green'}"></span> ER ${index + 1}
+            </div>
+            ${patient ? `
+                <div style="font-size:12px; font-weight:800; color:var(--danger)">${patient.patient_id}</div>
+                <button class="primary" style="margin-top:10px; font-size:11px; width:100%; background:#172033" onclick="dischargePatient(${index})">⏏ Discharge</button>
+            ` : `
+                <div style="font-size:12px; color:var(--muted)">Vacant</div>
+                <button class="primary" style="margin-top:10px; font-size:11px; width:100%; visibility:hidden;">—</button>
+            `}
+        </div>
+    `).join("");
+}
+// Call this once on load
+renderER();
 // -----------------------------------------------------
 // 2. RENDER THE UI
 // -----------------------------------------------------
@@ -47,7 +69,11 @@ function renderDashboard(data) {
         document.getElementById("erStatus").textContent = "SYSTEM ONLINE & LISTENING";
     }
 
-    // Render Table (Single declaration of tbody)
+    // Check ER Capacity
+    const hasVacantRoom = emergencyRooms.includes(null);
+    document.getElementById("erFullWarning").style.display = hasVacantRoom ? "none" : "block";
+
+    // Render Table
     const tbody = document.getElementById("queue");
     tbody.innerHTML = q.map((p, i) => `
         <tr class="${selectedPatientId === p.patient_id ? 'selected' : ''}" onclick="selectPatient('${p.patient_id}')">
@@ -59,9 +85,10 @@ function renderDashboard(data) {
           <td>${p.wait_time_min.toFixed(1)}m</td>
           <td>${p.arrival_mode}</td>
           <td>
-            <button class="primary" style="padding: 6px 10px; font-size: 11px; background:#059669" 
-                    onclick="treatPatient('${p.patient_id}'); event.stopPropagation();">
-              ✓ Treat
+            <button class="primary" style="padding: 6px 10px; font-size: 11px; background:${hasVacantRoom ? '#059669' : '#9ca3af'}; cursor:${hasVacantRoom ? 'pointer' : 'not-allowed'}" 
+                    onclick="${hasVacantRoom ? `treatPatient('${p.patient_id}'); event.stopPropagation();` : 'event.stopPropagation();'}"
+                    ${hasVacantRoom ? '' : 'disabled'}>
+              ${hasVacantRoom ? '✓ Treat' : 'ER FULL'}
             </button>
           </td>
         </tr>
@@ -142,6 +169,43 @@ async function togglePause() {
 }
 
 async function treatPatient(patientId) {
-    await fetch(`${API_BASE_URL}/api/treat/${patientId}`, { method: 'POST' });
+    // 1. Find the first available ER Room (Left to Right)
+    const roomIndex = emergencyRooms.indexOf(null);
+    if (roomIndex === -1) return; // Failsafe if full
+
+    // 2. Grab patient data and move them to the ER Room
+    const p = currentQueueData.find(x => x.patient_id === patientId);
+    if (p) {
+        emergencyRooms[roomIndex] = p;
+        renderER(); // Turn light red
+    }
+
+    // 3. Remove them from the backend queue
+    await fetch(`http://localhost:8000/api/treat/${patientId}`, { method: 'POST' });
     fetchLiveQueue(); 
+}
+
+function dischargePatient(index) {
+    const p = emergencyRooms[index];
+    if (!p) return;
+
+    // 1. Send to Audit Log (UI)
+    const timeString = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+    treatedHistory.unshift(`
+        <div style="font-size:12px; padding:8px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between;">
+            <span><span class="green">✓ DISCHARGED:</span> <b>${p.patient_id}</b></span>
+            <span style="color:var(--muted)">From ER ${index + 1} at ${timeString}</span>
+        </div>
+    `);
+    if (treatedHistory.length > 8) treatedHistory.pop();
+    document.getElementById("treatedLog").innerHTML = treatedHistory.join("");
+
+    // 2. Vacate the room, turn light green, update global counter
+    emergencyRooms[index] = null;
+    totalDischargedCount++;
+    document.getElementById("dischargedCount").textContent = totalDischargedCount;
+
+    // 3. Update the UI
+    renderER();
+    fetchLiveQueue(); // Re-evaluates room capacity and re-enables "Treat" buttons
 }

@@ -11,7 +11,7 @@ header{background:#111827;color:white;padding:18px 28px;display:flex;justify-con
 .brand{font-size:22px;font-weight:800}.sub{font-size:12px;color:#cbd5e1;margin-top:3px}
 .clock{font-variant-numeric:tabular-nums;text-align:right}
 main{padding:22px;max-width:1500px;margin:auto}.grid{display:grid;gap:16px}
-.stats{grid-template-columns:repeat(6,1fr)}.two{grid-template-columns:1.6fr 1fr}
+.stats{grid-template-columns:repeat(7,1fr)}.two{grid-template-columns:1.6fr 1fr}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 2px 8px #00000008}
 .stat .label{color:var(--muted);font-size:12px}.stat .value{font-size:25px;font-weight:800;margin-top:5px}
 .section-title{font-weight:800;font-size:16px;margin-bottom:12px}
@@ -25,6 +25,12 @@ button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:point
 .er{display:flex;justify-content:space-between;align-items:center}.er-status{font-size:14px;font-weight:800}
 .detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}.detail-row span:first-child{color:var(--muted)}
 .notice{padding:10px 12px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:9px;color:#3730a3;font-size:12px;font-weight:bold;}
+.light { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: -1px; }
+.light-green { background: #059669; box-shadow: 0 0 6px #059669; }
+.light-red { background: #dc2626; box-shadow: 0 0 6px #dc2626; }
+.room-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; text-align: center; background: #fafafa; transition: 0.2s; }
+.room-card.occupied { border-color: #fca5a5; background: #fef2f2; }
+.er-warning { display:none; background:var(--danger); color:white; padding:10px; border-radius:8px; text-align:center; font-weight:800; font-size:13px; margin-bottom:12px; }
 </style>
 </head>
 <body>
@@ -41,6 +47,7 @@ button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:point
  <div class="card stat"><div class="label">Ambulance</div><div class="value" id="ambulance">0</div></div>
  <div class="card stat"><div class="label">Walk-In</div><div class="value" id="nonambulance">0</div></div>
  <div class="card stat"><div class="label">Avg. Wait</div><div class="value"><span id="avgwait">0</span> min</div></div>
+ <div class="card stat"><div class="label">Discharged</div><div class="value green" id="dischargedCount">0</div></div>
 </div>
 
 <div style="height:16px"></div>
@@ -69,7 +76,20 @@ button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:point
 </div>
 
 <div style="height:16px"></div>
+<div class="card" style="margin-bottom: 16px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+    <div class="section-title" style="margin:0;">Physical Emergency Rooms</div>
+    <div style="font-size:12px; color:var(--muted); font-weight:bold;">
+      LEGEND: &nbsp; <span class="light light-green"></span> Vacant &nbsp;&nbsp; <span class="light light-red"></span> Occupied
+    </div>
+  </div>
+  <!-- ER Slots injected via JS -->
+  <div id="er-rooms-container" style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 12px;"></div>
+</div>
 
+<div id="erFullWarning" class="er-warning">
+  🚨 SYSTEM LOCKDOWN: ALL EMERGENCY ROOMS ARE OCCUPIED. INTAKE HALTED. 🚨
+</div>
 <div class="grid two">
  <div class="card">
    <div class="section-title">Live Priority Queue</div>
