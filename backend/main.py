@@ -5,13 +5,12 @@ import heapq
 import pickle
 import pandas as pd
 import time
-from pathlib import Path
+import os
+import asyncio
+import csv
+from datetime import datetime
 
 app = FastAPI(title="PatientTriage.ai Live Engine")
-
-@app.get("/")
-async def health_check():
-    return {"status": "ok", "service": "PatientTriage.ai Live Engine"}
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,20 +20,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-model_path = BASE_DIR / "model" / "triage_model.pkl"
-
-print(f"Loading AI Model from: {model_path}")
-if not model_path.exists():
-    raise FileNotFoundError(f"Model file not found: {model_path}")
-
-with open(model_path, "rb") as f:
-    model = pickle.load(f)
+print("Loading AI Model...")
+model_path = "../model/triage_model.pkl"
+if os.path.exists(model_path):
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
 
 # Global Data Structures & State
 patient_queue = []  
 patient_database = {}  
-intake_paused = False  # NEW: Tracks if the ER is accepting new patients
+intake_paused = False  
+start_time = time.time() # Tracks server uptime for the DevOps health check
 
 class PatientInput(BaseModel):
     patient_id: str
@@ -48,31 +44,93 @@ class PatientInput(BaseModel):
     hr_slope: float = 0.0
     spo2_slope: float = 0.0
 
-# --- NEW: PAUSE ENDPOINT ---
+# --- UPGRADE 1: TRUE BACKGROUND DAEMON ---
+async def decay_daemon():
+    """Runs continuously in the background, updating scores independent of the UI."""
+    global patient_queue
+    while True:
+        if not intake_paused and patient_database:
+            current_time = time.time()
+            new_heap = []
+            
+            for pat in patient_database.values():
+                # 1. Calculate wait time (x10 for demo speed)
+                pat["wait_time_min"] = round(((current_time - pat["arrival_timestamp"]) / 60) * 10, 1)
+                
+                # 2. Continuous Deterioration: Add 0.5 risk points for every 1 minute of waiting
+                dynamic_score = min(100, pat["base_risk_score"] + (pat["wait_time_min"] * 0.5))
+                pat["dynamic_score"] = round(dynamic_score, 1)
+                
+                # 3. Update Risk Level String
+                if dynamic_score >= 75: pat["risk_level"] = "Critical"
+                elif dynamic_score >= 50: pat["risk_level"] = "High"
+                elif dynamic_score >= 25: pat["risk_level"] = "Moderate"
+                else: pat["risk_level"] = "Low"
+
+                # 4. Prepare for re-heapification
+                new_heap.append((-dynamic_score, pat["patient_id"]))
+                
+            # 5. Re-sort the Max-Heap in the background
+            heapq.heapify(new_heap)
+            patient_queue = new_heap
+            
+        # Run this decay loop every 2 seconds independently of API calls
+        await asyncio.sleep(2)
+
+# Trigger the daemon when the FastAPI server starts
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(decay_daemon())
+
+
 @app.post("/api/toggle_pause")
 async def toggle_pause():
     global intake_paused
     intake_paused = not intake_paused
     return {"status": "success", "is_paused": intake_paused}
 
-# --- NEW: TREAT/REMOVE PATIENT ENDPOINT ---
+
+# --- NEW: COMPLIANT AUDIT LOGGING ---
 @app.post("/api/treat/{patient_id}")
 async def treat_patient(patient_id: str):
     global patient_queue
     if patient_id in patient_database:
-        del patient_database[patient_id] # Remove from DB
+        # 1. Get the patient data before deleting it
+        pat = patient_database[patient_id]
         
-        # O(n) Heap Rebuild to instantly remove them from the queue
+        # 2. Write to a permanent Audit Log (The "Enterprise Flex")
+        audit_file = "clinical_audit_log.csv"
+        file_exists = os.path.isfile(audit_file)
+        
+        with open(audit_file, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            # Write headers if the file is brand new
+            if not file_exists:
+                writer.writerow(["Timestamp", "Patient_ID", "Arrival_Mode", "Wait_Time_Mins", "Final_Risk_Score", "AI_T_Safe_Prediction"])
+            
+            # Log the permanent record
+            writer.writerow([
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                pat["patient_id"],
+                pat["arrival_mode"],
+                pat["wait_time_min"],
+                pat["dynamic_score"],
+                pat["predicted_t_safe"]
+            ])
+            
+        # 3. Remove from active memory
+        del patient_database[patient_id] 
         patient_queue = [item for item in patient_queue if item[1] != patient_id]
         heapq.heapify(patient_queue)
-        return {"status": "success"}
+        
+        return {"status": "success", "message": "Patient treated and securely logged."}
     return {"status": "error", "message": "Patient not found"}
+
 
 @app.post("/api/intake")
 async def admit_patient(patient: PatientInput):
     global intake_paused
     
-    # If the nurse paused the queue, reject the incoming patient
     if intake_paused:
         return {"status": "paused", "message": "ER Intake is currently paused."}
 
@@ -98,7 +156,7 @@ async def admit_patient(patient: PatientInput):
     patient_data = {
         "patient_id": patient.patient_id,
         "base_risk_score": round(base_risk_score, 1),
-        "dynamic_score": round(base_risk_score, 1), # Starts equal to base
+        "dynamic_score": round(base_risk_score, 1),
         "red_flag": red_flag,
         "wait_time_min": 0, 
         "arrival_mode": patient.arrival_mode,
@@ -111,43 +169,33 @@ async def admit_patient(patient: PatientInput):
     
     return {"status": "success", "patient_id": patient.patient_id}
 
+
 @app.get("/api/queue")
 async def get_live_queue():
-    global patient_queue
+    """Now purely an O(n log n) read endpoint. The math is handled by the background daemon."""
     current_time = time.time()
     response_queue = []
-    new_heap = []
     
-    # --- UPGRADED: THE DYNAMIC DECAY DAEMON ---
-    for pat in patient_database.values():
-        # 1. Calculate wait time (x10 for demo speed)
-        pat["wait_time_min"] = round(((current_time - pat["arrival_timestamp"]) / 60) * 10, 1)
-        
-        # 2. Continuous Deterioration: Add 0.5 risk points for every 1 minute of waiting
-        dynamic_score = min(100, pat["base_risk_score"] + (pat["wait_time_min"] * 0.5))
-        pat["dynamic_score"] = round(dynamic_score, 1)
-        
-        # 3. Update Risk Level String based on the new dynamic score
-        if dynamic_score >= 75: pat["risk_level"] = "Critical"
-        elif dynamic_score >= 50: pat["risk_level"] = "High"
-        elif dynamic_score >= 25: pat["risk_level"] = "Moderate"
-        else: pat["risk_level"] = "Low"
-
-        # 4. Prepare for re-heapification
-        new_heap.append((-dynamic_score, pat["patient_id"]))
-        
-    # 5. Re-sort the Max-Heap using Python's highly optimized O(n) heapify
-    heapq.heapify(new_heap)
-    patient_queue = new_heap
-    
-    # 6. Read the newly sorted heap to send to the UI
+    # 1. Read the background-sorted heap to send to the UI
     for neg_score, pid in sorted(patient_queue):
-        response_queue.append(patient_database[pid])
+        if pid in patient_database:
+            response_queue.append(patient_database[pid])
+            
+    # --- UPGRADE 2: FLOW ACCUMULATION METRIC ---
+    # Count how many patients arrived in the last 60 seconds (real-time)
+    inflow_last_minute = len([p for p in patient_database.values() if (current_time - p["arrival_timestamp"]) < 60])
+    
+    # If a surge hits (more than 15 patients a minute), trigger a systemic warning
+    if inflow_last_minute > 15:
+        system_status = "CRITICAL: ACCUMULATION RATE EXCEEDS CAPACITY"
+    else:
+        system_status = "STABLE: FLOW RATE NOMINAL"
         
     return {
         "total_waiting": len(response_queue),
         "queue": response_queue,
-        "is_paused": intake_paused
+        "is_paused": intake_paused,
+        "system_status": system_status
     }
 
 @app.post("/api/reset")
@@ -155,6 +203,19 @@ async def reset_engine():
     patient_queue.clear()
     patient_database.clear()
     return {"status": "Engine reset"}
+
+# --- DEVOPS HEALTH CHECK ---
+@app.get("/api/health")
+async def system_health():
+    """DevOps monitoring endpoint for load balancers."""
+    return {
+        "status": "Healthy",
+        "active_tasks": len(asyncio.all_tasks()),
+        "heap_size_elements": len(patient_queue),
+        "database_keys": len(patient_database.keys()),
+        "ai_model_loaded": 'model' in globals() and model is not None,
+        "uptime_sec": round(time.time() - start_time, 1)
+    }
 
 if __name__ == "__main__":
     import uvicorn
